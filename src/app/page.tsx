@@ -1,7 +1,5 @@
 'use client';
-import Image from 'next/image';
-import { generateText } from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
+
 import { QueryClient, QueryClientProvider, useMutation, useQuery } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -10,11 +8,8 @@ import { v4 } from 'uuid';
 import { create } from 'zustand';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { useRef } from 'react';
+import axios from 'axios';
 const queryClient = new QueryClient();
-
-const openai = createOpenAI({
-  apiKey: ''
-});
 
 interface ResponseItem {
   isPending?: boolean;
@@ -32,7 +27,7 @@ const useResponseStore = create<ResponseStoreState>((set) => ({
 }));
 
 const ResponseItem = ({ isPending, text, uuid }: ResponseItem) => (
-  <li id={uuid} key={uuid}>
+  <li className='p-1 border outline rounded-sm' id={uuid} key={uuid}>
     {isPending ? 'Loading...' : text}
   </li>
 );
@@ -44,11 +39,9 @@ const PromptCard = () => {
     queryKey: ['ask'],
     enabled: false,
     queryFn: async () => {
-      const { text } = await generateText({
-        model: openai('gpt-4o-mini'),
-        prompt: prompt.current,
-      });
-      store.update([...store.list.slice(0, -1), { text, uuid: v4() }]);
+      const { data } = await axios.post('/api/', prompt.current);
+
+      store.update([...store.list.slice(0, -1), { text: data.text, uuid: v4() }]);
     },
   });
   const PromptForm: React.FC = () => {
@@ -56,12 +49,12 @@ const PromptCard = () => {
     const onSubmit: SubmitHandler<any> = (data) => {
       if (!data.prompt) return;
       prompt.current = data.prompt;
-      store.list.push({ isPending: true, uuid: v4() })
+      store.list.push({ isPending: true, uuid: v4() });
       store.update(store.list);
       refetch();
     };
     return (
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form className='my-1' onSubmit={handleSubmit(onSubmit)}>
         <Input className='my-1' type='text' {...register('prompt')}></Input>
         <Button className='my-1' type='submit'>
           Submit
