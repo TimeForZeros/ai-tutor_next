@@ -9,6 +9,7 @@ import { create } from 'zustand';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { useRef } from 'react';
 import axios from 'axios';
+import Markdown from 'react-markdown';
 const queryClient = new QueryClient();
 
 interface ResponseItem {
@@ -28,7 +29,7 @@ const useResponseStore = create<ResponseStoreState>((set) => ({
 
 const ResponseItem = ({ isPending, text, uuid }: ResponseItem) => (
   <li className='p-1 border outline rounded-sm' id={uuid} key={uuid}>
-    {isPending ? 'Loading...' : text}
+    <Markdown>{isPending ? 'Loading...' : text}</Markdown>
   </li>
 );
 const ResponseList = ({ list }: { list: ResponseItem[] }) => <ul>{list.map(ResponseItem)}</ul>;
