@@ -13,10 +13,29 @@ import Markdown from 'react-markdown';
 import { useAppStore } from '@/stores';
 const queryClient = new QueryClient();
 
-const PromptResponseItem = ({ text, uuid }: PromptResponse) => {
+const PromptResponseItem = ({ uuid, text }: PromptResponse) => {
+  // If text is already present, just render it. Otherwise, fetch it.
+  const store = useAppStore();
+  const item = store.list.find((item) => item.uuid === uuid);
+  const prompt = item?.text ? undefined : store.prompt; // Or store a prompt per item if needed
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['ask', uuid],
+    enabled: !text && !!prompt, // Only fetch if no text and prompt is available
+    queryFn: async () => {
+      const { data } = await axios.post('/api/', prompt);
+      // Update the store with the fetched text
+      const updatedList = store.list.map((i) =>
+        i.uuid === uuid ? { ...i, text: data.text } : i
+      );
+      store.update(updatedList);
+      return data.text;
+    },
+  });
+
   return (
     <li className='p-1 border outline rounded-sm' id={uuid} key={uuid}>
-      <Markdown>{text || 'Loading...'}</Markdown>
+      <Markdown>{text || data || (isLoading ? 'Loading...' : '')}</Markdown>
     </li>
   );
 };
@@ -26,19 +45,13 @@ const ResponseList = ({ list }: { list: PromptResponse[] }) => {
 
 const PromptForm = () => {
   const store = useAppStore();
-    const { data, isSuccess, isLoading } = useQuery({
-    queryKey: ['ask', store.prompt],
-    enabled: !!store.prompt,
-    queryFn: async () => {
-      const { data } = await axios.post('/api/', store.prompt);
-      return data.text;
-    },
-  });
-  const { register, handleSubmit } = useForm();
-  const onSubmit: SubmitHandler<any> = async (formData) => {
+  const { register, handleSubmit, reset } = useForm();
+  const onSubmit: SubmitHandler<any> = (formData) => {
     if (!formData.prompt) return;
+    const uuid = v4();
     store.setPrompt(formData.prompt);
-    store.update([...store.list, { uuid: v4(), text: data }]);
+    store.update([...store.list, { uuid }]);
+    reset();
   };
   return (
     <form className='my-1' onSubmit={handleSubmit(onSubmit)}>
