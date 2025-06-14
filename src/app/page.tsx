@@ -7,64 +7,51 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { v4 } from 'uuid';
 import { useForm, SubmitHandler } from 'react-hook-form';
-import { useRef } from 'react';
+import { useRef, RefObject } from 'react';
 import axios from 'axios';
 import Markdown from 'react-markdown';
 import { useAppStore } from '@/stores';
 const queryClient = new QueryClient();
 
-const PromptResponseItem = ({ isLoading, text, uuid }: PromptResponse) => (
-  <li className='p-1 border outline rounded-sm' id={uuid} key={uuid}>
-    <Markdown>{isLoading ? 'Loading...' : text}</Markdown>
-  </li>
-);
-const ResponseList = ({ list }: { list: PromptResponse[] }) => (
-  <ul>{list.map(PromptResponseItem)}</ul>
-);
+const PromptResponseItem = ({ text, uuid }: PromptResponse) => {
+  return (
+    <li className='p-1 border outline rounded-sm' id={uuid} key={uuid}>
+      <Markdown>{text || 'Loading...'}</Markdown>
+    </li>
+  );
+};
+const ResponseList = ({ list }: { list: PromptResponse[] }) => {
+  return <ul>{list.map(PromptResponseItem)}</ul>;
+};
+
+const PromptForm = () => {
+  const store = useAppStore();
+    const { data, isSuccess, isLoading } = useQuery({
+    queryKey: ['ask', store.prompt],
+    enabled: !!store.prompt,
+    queryFn: async () => {
+      const { data } = await axios.post('/api/', store.prompt);
+      return data.text;
+    },
+  });
+  const { register, handleSubmit } = useForm();
+  const onSubmit: SubmitHandler<any> = async (formData) => {
+    if (!formData.prompt) return;
+    store.setPrompt(formData.prompt);
+    store.update([...store.list, { uuid: v4(), text: data }]);
+  };
+  return (
+    <form className='my-1' onSubmit={handleSubmit(onSubmit)}>
+      <Input className='my-1' type='text' {...register('prompt')} />
+      <Button className='my-1' type='submit'>
+        Submit
+      </Button>
+    </form>
+  );
+};
 
 const PromptCard = () => {
   const store = useAppStore();
-  const prompt = useRef('');
-  const { data, refetch, isLoading, isSuccess } = useQuery({
-    queryKey: ['ask', prompt], // Add prompt as part of the key for better cache separation
-    enabled: false,
-    queryFn: async () => {
-      const {data} = await axios.post('/api/', { prompt: prompt.current });
-      console.log(data);
-      return data;
-
-      }, // Send as object for clarity
-    // Replace the last pending item with the response
-  });
-  console.log(data);
-
-  if (isLoading) {
-    store.update([...store.list.slice(0, -1), { uuid: v4(), isLoading }]);
-  } else if (isSuccess) {
-    console.log(data.text);
-    store.update([...store.list.slice(0, -1), { text: data.text, uuid: v4() }]);
-  }
-
-  const PromptForm: React.FC = () => {
-    const { register, handleSubmit } = useForm();
-    const onSubmit: SubmitHandler<any> = (data) => {
-      if (!data.prompt) return;
-      prompt.current = data.prompt;
-      store.list.push({ isLoading, uuid: v4() });
-      store.update(store.list);
-      refetch();
-    };
-    return (
-      <form className='my-1' onSubmit={handleSubmit(onSubmit)}>
-        <Input className='my-1' type='text' {...register('prompt')}></Input>
-        <Button className='my-1' type='submit'>
-          Submit
-        </Button>
-      </form>
-    );
-  };
-  // const list = useAppStore((store) => store.list);
-
   return (
     <Card className='w-[50vw]'>
       <CardContent>
