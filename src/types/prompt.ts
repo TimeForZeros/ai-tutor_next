@@ -1,5 +1,5 @@
 export interface PromptResponse {
-  isLoading?: boolean;
+  isPrompt?: boolean;
   text?: string;
   uuid: string;
 }
